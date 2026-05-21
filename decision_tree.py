@@ -57,3 +57,48 @@ class DecisionTree:
 		weight_right = len(Y_right) / total
 
 		return weight_left * gini_left + weight_right * gini_right
+
+	def _split_dataset(self, X, Y, feature_index, threshold):
+		X_left = []
+		Y_left = []
+		X_right = []
+		Y_right = []
+
+		for i in range(len(X)):
+			if X[i][feature_index] <= threshold:
+				X_left.append(X[i])
+				Y_left.append(Y[i])
+			else:
+				X_right.append(X[i])
+				Y_right.append(Y[i])
+
+		return X_left, Y_left, X_right, Y_right
+
+	def _best_split(self, X, Y):
+		number_of_features = len(X[0])
+
+		best_feature_index = None
+		best_threshold = None
+		best_impurity = float("inf")
+
+		for feature_index in range(number_of_features):
+			feature_values = []
+			for row in X:
+				feature_values.append(row[feature_index])
+
+			candidate_thresholds = sorted(set(feature_values))
+
+			for threshold in candidate_thresholds:
+				X_left, Y_left, X_right, Y_right = self._split_dataset(X, Y, feature_index, threshold)
+
+				if len(Y_left) == 0 or len(Y_right) == 0:
+					continue
+
+				impurity = self._weighted_gini(Y_left, Y_right)
+
+				if impurity < best_impurity:
+					best_impurity = impurity
+					best_feature_index = feature_index
+					best_threshold = threshold
+
+		return best_feature_index, best_threshold
