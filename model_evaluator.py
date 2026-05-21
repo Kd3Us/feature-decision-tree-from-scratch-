@@ -11,6 +11,84 @@ class ModelEvaluator:
 		self.n_splits = n_splits
 		self.random_state = random_state
 
+	def _cross_validation(self, X, Y, params):
+		folds = self._stratified_k_fold_split(X, Y)
+
+		scores = []
+		for fold_index in range(len(folds)):
+			X_train_fold, Y_train_fold, X_validation_fold, Y_validation_fold = folds[fold_index]
+
+			fold_model_object = self.model_class(**params)
+			fold_model_object.fit(X_train_fold, Y_train_fold)
+			predictions = fold_model_object.predict(X_validation_fold)
+			score = self._f1_weighted(Y_validation_fold, predictions)
+			scores.append(score)
+			print(f"Fold {fold_index + 1}/{self.n_splits} : f1_weighted = {score}")
+
+		mean_score = sum(scores) / len(scores)
+
+		variance = 0
+		for score in scores:
+			variance += (score - mean_score) ** 2
+		variance = variance / len(scores)
+		std_score = math.sqrt(variance)
+
+		print(f"Mean f1_weighted : {mean_score} +/- {std_score}")
+		return mean_score, std_score
+
+	def _stratified_k_fold_split(self, X, Y):
+		if hasattr(Y, "tolist"):
+			Y_list = Y.tolist()
+		else:
+			Y_list = list(Y)
+
+		indices_by_class = {}
+		for i in range(len(Y_list)):
+			label = Y_list[i]
+			if label not in indices_by_class:
+				indices_by_class[label] = []
+			indices_by_class[label].append(i)
+
+		shuffler = random.Random(self.random_state)
+		for label in indices_by_class:
+			shuffler.shuffle(indices_by_class[label])
+
+		validation_indices_per_fold = []
+		for fold_index in range(self.n_splits):
+			validation_indices_per_fold.append([])
+
+		for label in indices_by_class:
+			class_indices = indices_by_class[label]
+			for position in range(len(class_indices)):
+				fold_index = position % self.n_splits
+				index = class_indices[position]
+				validation_indices_per_fold[fold_index].append(index)
+
+		folds = []
+		for fold_index in range(self.n_splits):
+			validation_indices = validation_indices_per_fold[fold_index]
+			validation_set = set(validation_indices)
+
+			train_indices = []
+			for i in range(len(X)):
+				if i not in validation_set:
+					train_indices.append(i)
+
+			X_train_fold = []
+			Y_train_fold = []
+			for i in train_indices:
+				X_train_fold.append(X[i])
+				Y_train_fold.append(Y_list[i])
+
+			X_validation_fold = []
+			Y_validation_fold = []
+			for i in validation_indices:
+				X_validation_fold.append(X[i])
+				Y_validation_fold.append(Y_list[i])
+
+			folds.append((X_train_fold, Y_train_fold, X_validation_fold, Y_validation_fold))
+		return folds
+
 	def _to_list(self, Y):
 		if hasattr(Y, "tolist"):
 			return Y.tolist()
