@@ -17,3 +17,14 @@ class DecisionTree:
 
 	def predict(self, X):
 		pass
+
+	def _to_list_of_rows(self, X):
+		rows = []
+		for row in X:
+			rows.append(list(row))
+		return rows
+
+	def _to_list(self, Y):
+		if hasattr(Y, "tolist"):
+			return Y.tolist()
+		return list(Y)
