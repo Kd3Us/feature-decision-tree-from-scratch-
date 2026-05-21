@@ -11,6 +11,39 @@ class ModelEvaluator:
 		self.n_splits = n_splits
 		self.random_state = random_state
 
+	def evaluate(self, model, X_test, Y_test):
+		predictions = model.predict(X_test)
+		Y_test_list = self._to_list(Y_test)
+		score = self._f1_weighted(Y_test_list, predictions)
+		print(f"F1 weighted : {score}")
+		return score
+
+	def grid_search(self, X, Y):
+		param_names = list(self.param_grid.keys())
+		value_lists = [self.param_grid[name] for name in param_names]
+		all_combinations = list(itertools.product(*value_lists))
+
+		results = {}
+		for combination in all_combinations:
+			params = {}
+			for i in range(len(param_names)):
+				params[param_names[i]] = combination[i]
+			print(f"Testing params = {params}")
+
+			mean_score, std_score = self._cross_validation(X, Y, params)
+			results[combination] = mean_score
+			print("-"*20)
+
+		best_combination = max(results, key=results.get)
+		best_score = results[best_combination]
+
+		best_params = {}
+		for i in range(len(param_names)):
+			best_params[param_names[i]] = best_combination[i]
+		print(f"Best params : {best_params} with f1_weighted = {best_score}")
+
+		return best_params, best_score, results
+
 	def _cross_validation(self, X, Y, params):
 		folds = self._stratified_k_fold_split(X, Y)
 
