@@ -1,4 +1,5 @@
 from data_loader import load_normalized_data
+from model_evaluator import ModelEvaluator
 from tqdm import tqdm
 
 # La classe KNN encapsule toute la logique de l'algorithme.
@@ -9,7 +10,7 @@ class KNN:
 	# __init__ est le "constructeur" : il s'exécute automatiquement dès qu'on
 	# crée un objet KNN (ex: KNN(n_neighbors=7)).
 	# self désigne l'objet lui-même — c'est par lui qu'on accède aux attributs.
-	def __init__(self, n_neighbors):
+	def __init__(self, n_neighbors=5):
 		self.n_neighbors = n_neighbors  # K : le nombre de voisins à consulter
 
 
@@ -39,42 +40,46 @@ class KNN:
 	# Phase 2 — Prédiction.
 	# Pour un nouveau point, on cherche ses K voisins les plus proches dans les
 	# données d'entraînement, puis on fait un vote pondéré.
-	def predict(self, x_to_forcast):
+	def predict(self, X):
 		# Garde-fou : si fit() n'a pas été appelé, les attributs n'existent pas.
 		# hasattr() vérifie l'existence d'un attribut sans lever d'erreur.
 		if not hasattr(self, "X_normalized") or not hasattr(self, "Y"):
 			raise Exception("The model is not fit")
 
-		# Étape 1 — Calculer la distance entre x_to_forcast et CHAQUE point connu.
-		# enumerate() fournit à la fois l'index et la valeur à chaque itération.
-		# tqdm affiche une barre de progression (utile : cette boucle peut être longue).
-		distances = {}
-		for index_x, current_x in tqdm(enumerate(self.X_normalized), total=len(self.X_normalized)):
-			current_distance = KNN.euclidian_distance(current_x, x_to_forcast)
-			# Arrondi à 2 décimales : évite que 1.000001 et 1.000002 soient traités
-			# comme des distances différentes alors qu'elles sont pratiquement égales.
-			distances[index_x] = float(f"{current_distance:.2f}")
+		predictions = []
+		for x_to_forcast in X:
+			# Étape 1 — Calculer la distance entre x_to_forcast et CHAQUE point connu.
+			# enumerate() fournit à la fois l'index et la valeur à chaque itération.
+			# tqdm affiche une barre de progression (utile : cette boucle peut être longue).
+			distances = {}
+			for index_x, current_x in tqdm(enumerate(self.X_normalized), total=len(self.X_normalized)):
+				current_distance = KNN.euclidian_distance(current_x, x_to_forcast)
+				# Arrondi à 2 décimales : évite que 1.000001 et 1.000002 soient traités
+				# comme des distances différentes alors qu'elles sont pratiquement égales.
+				distances[index_x] = float(f"{current_distance:.2f}")
 
-		# Étape 2 — Trier les points du plus proche au plus loin.
-		sorted_distances = KNN.sorted_dict_by_values(distances)
+			# Étape 2 — Trier les points du plus proche au plus loin.
+			sorted_distances = KNN.sorted_dict_by_values(distances)
 
-		# Étape 3 — Garder uniquement les K premiers index (les K plus proches voisins).
-		# [:self.n_neighbors] est un slice : prend les n premiers éléments de la liste.
-		indexes_nearest_neighbors = list(sorted_distances.keys())[: self.n_neighbors]
+			# Étape 3 — Garder uniquement les K premiers index (les K plus proches voisins).
+			# [:self.n_neighbors] est un slice : prend les n premiers éléments de la liste.
+			indexes_nearest_neighbors = list(sorted_distances.keys())[: self.n_neighbors]
 
-		# Étape 4 — Vote pondéré : chaque voisin vote pour sa classe.
-		# Le poids compense le déséquilibre : une classe rare vote plus fort.
-		label_counter = {label : 0 for label in self.set_of_labels}
-		for index_point in indexes_nearest_neighbors:
-			label = self.Y[index_point]
-			label_counter[label] += self.label_weight[label]
+			# Étape 4 — Vote pondéré : chaque voisin vote pour sa classe.
+			# Le poids compense le déséquilibre : une classe rare vote plus fort.
+			label_counter = {label : 0 for label in self.set_of_labels}
+			for index_point in indexes_nearest_neighbors:
+				label = self.Y[index_point]
+				label_counter[label] += self.label_weight[label]
 
-		# Étape 5 — La classe avec le score total le plus élevé est la prédiction.
-		# Le dictionnaire est trié par ordre croissant, donc le gagnant est le dernier [-1].
-		sorted_label_counter = KNN.sorted_dict_by_values(label_counter)
-		predicted_label = list(sorted_label_counter.keys())[-1]
+			# Étape 5 — La classe avec le score total le plus élevé est la prédiction.
+			# Le dictionnaire est trié par ordre croissant, donc le gagnant est le dernier [-1].
+			sorted_label_counter = KNN.sorted_dict_by_values(label_counter)
+			predicted_label = list(sorted_label_counter.keys())[-1]
 
-		return predicted_label
+			predictions.append(predicted_label)
+
+		return predictions
 
 
 	# @staticmethod : cette méthode n'utilise pas self, elle ne dépend d'aucun
@@ -82,7 +87,7 @@ class KNN:
 	# On peut l'appeler directement : KNN.euclidian_distance(x1, x2)
 	@staticmethod
 	def euclidian_distance(x1, x2):
-		x1, x2 = list(x1), list(x2)[0]  # conversion en listes Python standard
+		x1, x2 = list(x1), list(x2)  # conversion en listes Python standard
 
 		# Formule : √[ Σ(aᵢ - bᵢ)² ]
 		# zip(strict=True) associe les features deux à deux et lève une erreur
@@ -99,14 +104,12 @@ class KNN:
 		return sorted_dict
 
 
-
-
-
 if __name__ == "__main__":
 	X_normalized, Y, standard_scaler_object = load_normalized_data(file_path="bienetre.csv")
-	knn_object = KNN(n_neighbors=7)
-	knn_object.fit(X_normalized, Y)
-	print(knn_object.predict([X_normalized[7]]))
-	print(Y[7])
 
-
+	evaluator = ModelEvaluator(
+		model_class=KNN,
+		param_grid={"n_neighbors": list(range(1, 12, 2))},
+		n_splits=5,
+	)
+	best_params, best_score, results = evaluator.grid_search(X_normalized[:500], Y.iloc[:500])
