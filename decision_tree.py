@@ -29,6 +29,13 @@ class DecisionTree:
 			predictions.append(predicted_label)
 		return predictions
 
+	def evaluate(self, X_test, Y_test):
+		predictions = self.predict(X_test)
+		Y_test_list = self._to_list(Y_test)
+		score = self._f1_weighted(Y_test_list, predictions)
+		print(f"F1 weighted : {score}")
+		return score
+
 	def _to_list_of_rows(self, X):
 		rows = []
 		for row in X:
@@ -160,3 +167,48 @@ class DecisionTree:
 			return self._predict_one(point, node["left"])
 		else:
 			return self._predict_one(point, node["right"])
+
+	def _precision(self, Y_true, Y_pred, target_class):
+		true_positive = 0
+		false_positive = 0
+		for i in range(len(Y_true)):
+			if Y_pred[i] == target_class and Y_true[i] == target_class:
+				true_positive += 1
+			elif Y_pred[i] == target_class and Y_true[i] != target_class:
+				false_positive += 1
+		if true_positive + false_positive == 0:
+			return 0
+		return true_positive / (true_positive + false_positive)
+
+	def _recall(self, Y_true, Y_pred, target_class):
+		true_positive = 0
+		false_negative = 0
+		for i in range(len(Y_true)):
+			if Y_true[i] == target_class and Y_pred[i] == target_class:
+				true_positive += 1
+			elif Y_true[i] == target_class and Y_pred[i] != target_class:
+				false_negative += 1
+		if true_positive + false_negative == 0:
+			return 0
+		return true_positive / (true_positive + false_negative)
+
+	def _f1_weighted(self, Y_true, Y_pred):
+		classes = set(Y_true)
+		total = len(Y_true)
+
+		weighted_f1 = 0
+		for c in classes:
+			precision = self._precision(Y_true, Y_pred, c)
+			recall = self._recall(Y_true, Y_pred, c)
+			if precision + recall == 0:
+				f1_class = 0
+			else:
+				f1_class = 2 * precision * recall / (precision + recall)
+
+			support = 0
+			for label in Y_true:
+				if label == c:
+					support += 1
+
+			weighted_f1 += (support / total) * f1_class
+		return weighted_f1
