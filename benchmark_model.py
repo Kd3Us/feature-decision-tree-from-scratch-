@@ -1,5 +1,7 @@
 from sklearn.model_selection import StratifiedKFold, cross_val_score, GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 
 
 
@@ -14,7 +16,7 @@ def find_optimal_params(
 	):
 	print(f"Finding optimal params for {model_name}")
 	cross_validation_object = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
-	
+
 
 	grid_search = GridSearchCV(model(), param_grid, cv=cross_validation_object, scoring=scoring)
 	grid_search.fit(X_normalized, Y)
@@ -36,9 +38,34 @@ def find_optimal_model(
 		n_splits=10,
 		scoring="f1_weighted",
 	):
-	
+
 	dict_parms_per_model = {
-		"KNeighborsClassifier": (KNeighborsClassifier, {'n_neighbors': list(range(1, 100, 2))}),
+		"KNeighborsClassifier": (
+			KNeighborsClassifier,
+			{
+				'n_neighbors': list(range(1, 100, 2)),
+			},
+		),
+		"DecisionTreeClassifier": (
+			DecisionTreeClassifier,
+			{
+				'criterion': ['gini', 'entropy'],
+				'max_depth': [None, 3, 5, 7, 10, 15, 20],
+				'min_samples_split': [2, 5, 10, 20],
+				'min_samples_leaf': [1, 2, 5, 10],
+				'random_state': [42],
+			},
+		),
+		"RandomForestClassifier": (
+			RandomForestClassifier,
+			{
+				'n_estimators': [100, 200],
+				'max_depth': [None, 10, 20],
+				'min_samples_split': [2, 5],
+				'min_samples_leaf': [1, 2],
+				'random_state': [42],
+			},
+		),
 	}
 
 	best_score = -float("inf")
