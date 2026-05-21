@@ -18,7 +18,16 @@ class DecisionTree:
 		self.tree = self._build_tree(X_list, Y_list, depth=0)
 
 	def predict(self, X):
-		pass
+		if self.tree is None:
+			raise Exception("The model is not fit")
+
+		X_list = self._to_list_of_rows(X)
+
+		predictions = []
+		for point in X_list:
+			predicted_label = self._predict_one(point, self.tree)
+			predictions.append(predicted_label)
+		return predictions
 
 	def _to_list_of_rows(self, X):
 		rows = []
@@ -142,3 +151,12 @@ class DecisionTree:
 			"left": left_subtree,
 			"right": right_subtree,
 		}
+
+	def _predict_one(self, point, node):
+		if "label" in node:
+			return node["label"]
+
+		if point[node["feature_index"]] <= node["threshold"]:
+			return self._predict_one(point, node["left"])
+		else:
+			return self._predict_one(point, node["right"])
