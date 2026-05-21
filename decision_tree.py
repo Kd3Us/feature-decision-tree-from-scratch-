@@ -13,7 +13,9 @@ class DecisionTree:
 		self.tree = None
 
 	def fit(self, X, Y):
-		pass
+		X_list = self._to_list_of_rows(X)
+		Y_list = self._to_list(Y)
+		self.tree = self._build_tree(X_list, Y_list, depth=0)
 
 	def predict(self, X):
 		pass
@@ -102,3 +104,41 @@ class DecisionTree:
 					best_threshold = threshold
 
 		return best_feature_index, best_threshold
+
+	def _majority_label(self, Y):
+		counts = {}
+		for label in Y:
+			if label not in counts:
+				counts[label] = 0
+			counts[label] += 1
+		return max(counts, key=counts.get)
+
+	def _build_tree(self, X, Y, depth):
+		if len(set(Y)) == 1:
+			return {"label": Y[0]}
+
+		if depth >= self.max_depth:
+			return {"label": self._majority_label(Y)}
+
+		if len(Y) < self.min_samples_split:
+			return {"label": self._majority_label(Y)}
+
+		best_feature_index, best_threshold = self._best_split(X, Y)
+
+		if best_feature_index is None:
+			return {"label": self._majority_label(Y)}
+
+		X_left, Y_left, X_right, Y_right = self._split_dataset(X, Y, best_feature_index, best_threshold)
+
+		if len(Y_left) == 0 or len(Y_right) == 0:
+			return {"label": self._majority_label(Y)}
+
+		left_subtree = self._build_tree(X_left, Y_left, depth + 1)
+		right_subtree = self._build_tree(X_right, Y_right, depth + 1)
+
+		return {
+			"feature_index": best_feature_index,
+			"threshold": best_threshold,
+			"left": left_subtree,
+			"right": right_subtree,
+		}
